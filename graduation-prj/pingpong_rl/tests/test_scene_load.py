@@ -18,7 +18,7 @@ class PingPongSimTest(unittest.TestCase):
         sim.reset()
         ball_position = sim.reset_ball_above_racket(height=0.22)
 
-        self.assertEqual(sim.model.nbody, 15)
+        self.assertEqual(sim.model.nbody, 14)
         self.assertGreater(ball_position[2], sim.racket_position[2])
         self.assertAlmostEqual(sim.ball_position[0], ball_position[0], places=6)
         self.assertAlmostEqual(sim.data.ctrl[7], 255.0, places=6)

@@ -1,0 +1,2 @@
+[console_scripts]
+pingpong-rl-viewer = pingpong_rl.viewer:main

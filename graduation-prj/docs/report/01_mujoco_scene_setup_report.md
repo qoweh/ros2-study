@@ -17,9 +17,10 @@
 
 ### 2.2 MuJoCo scene 구성
 - floor 추가
-- table 추가
 - ping pong ball freejoint body 추가
 - Franka `hand` body에 racket body 추가
+- 초기 table은 제거
+- 라켓 형상을 단순 원판에서 paddle 형태에 가깝게 수정
 
 ### 2.3 Python 실행 계층 구성
 - scene 로더 추가
@@ -27,6 +28,8 @@
 - ball spawn/reset 함수 추가
 - joint target 적용 함수 추가
 - passive viewer 실행 스크립트 추가
+- editable install용 패키징 설정 추가
+- interactive viewer와 passive viewer를 분리
 
 ### 2.4 검증 코드 추가
 - scene load test 추가
@@ -57,6 +60,11 @@ PYTHONPATH=pingpong_rl/src python -m unittest discover -s pingpong_rl/tests -p '
 ### 4.2 라켓 부착 방식 선택
 - 현재는 디버깅 단순화를 위해 `hand` 자식 body 방식으로 구현했다.
 - 나중에 라켓 자산을 분리하고 싶으면 weld 기반 방식과 비교가 필요하다.
+
+### 4.3 viewer 입력 차이
+- 기존 `run_viewer.py`는 `launch_passive`를 사용했다.
+- 이 모드는 Python 쪽에서 직접 시뮬레이션 루프를 돌리므로 기본 MuJoCo viewer와 키 동작이 일부 다르게 느껴질 수 있다.
+- 현재는 기본 실행을 interactive mode로 바꿔 MuJoCo 기본 viewer와 더 가깝게 맞췄다.
 
 ## 5. 다음 작업 제안
 

@@ -3,12 +3,12 @@
 
     <option timestep="0.002" gravity="0 0 -9.81"/>
 
-    <statistic center="0.35 0 0.45" extent="1.4"/>
+    <statistic center="0.45 0 0.72" extent="1.1"/>
 
     <visual>
         <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
         <rgba haze="0.15 0.25 0.35 1"/>
-        <global azimuth="120" elevation="-20"/>
+        <global azimuth="118" elevation="-24"/>
     </visual>
 
     <asset>
@@ -22,13 +22,7 @@
         <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
         <geom name="floor" type="plane" size="0 0 0.05" material="groundplane"/>
 
-        <body name="table" pos="0.62 0 0">
-            <geom name="table_top" type="box" size="0.45 0.5 0.04" pos="0 0 0.72"
-                rgba="0.16 0.42 0.28 1" friction="0.8 0.01 0.002"/>
-            <geom name="table_leg" type="box" size="0.08 0.08 0.34" pos="0 0 0.34" rgba="0.3 0.3 0.3 1"/>
-        </body>
-
-        <body name="ball" pos="0.48 0 0.95">
+        <body name="ball" pos="0.555 0 0.965">
             <freejoint name="ball_joint"/>
             <geom name="ball_geom" type="sphere" size="0.02" mass="0.0027" rgba="1 0.6 0.1 1"
                 friction="0.18 0.002 0.0001" solref="0.003 1" solimp="0.95 0.99 0.001"/>

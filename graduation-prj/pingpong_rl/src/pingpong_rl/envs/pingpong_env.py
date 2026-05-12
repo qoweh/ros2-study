@@ -29,6 +29,7 @@ class PingPongSim:
         self._ball_dof_adr = self.model.jnt_dofadr[self.ball_joint_id]
         self._home_ctrl = self.model.key_ctrl[0].copy()
         self._home_joint_targets = self._home_ctrl[:7].copy()
+        self._default_ball_height = 0.22
         self.reset()
 
     @property
@@ -43,12 +44,23 @@ class PingPongSim:
     def racket_position(self) -> np.ndarray:
         return self.data.xpos[self.racket_body_id].copy()
 
-    def reset(self, ball_position: Sequence[float] = (0.48, 0.0, 0.95), ball_velocity: Sequence[float] = (0.0, 0.0, 0.0)) -> mujoco.MjData:
+    def reset(
+        self,
+        ball_position: Sequence[float] | None = None,
+        ball_velocity: Sequence[float] = (0.0, 0.0, 0.0),
+        ball_height: float | None = None,
+    ) -> mujoco.MjData:
         mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
         self.data.ctrl[:] = self._home_ctrl
         self.data.ctrl[7] = 255.0
-        self.spawn_ball(ball_position, ball_velocity)
         mujoco.mj_forward(self.model, self.data)
+
+        if ball_position is None:
+            spawn_height = self._default_ball_height if ball_height is None else float(ball_height)
+            self.reset_ball_above_racket(height=spawn_height, velocity=ball_velocity)
+        else:
+            self.spawn_ball(ball_position, ball_velocity)
+
         return self.data
 
     def spawn_ball(self, position: Sequence[float], velocity: Sequence[float] = (0.0, 0.0, 0.0)) -> np.ndarray:

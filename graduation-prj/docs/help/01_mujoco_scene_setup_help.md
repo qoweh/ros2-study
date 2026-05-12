@@ -87,3 +87,40 @@ Franka menagerie asset에는 actuator가 이미 들어 있다.
 - table 아래로 들어갈 때
 
 이런 경우 reset 조건을 더 보강해야 한다.
+
+## 6. 왜 viewer 키가 달랐는가
+
+MuJoCo viewer에는 크게 두 가지 실행 방식이 있다.
+
+### 6.1 interactive mode
+- `mujoco.viewer.launch(...)`
+- MuJoCo 기본 viewer가 시뮬레이션 루프를 직접 관리한다.
+- `python -m mujoco.viewer --mjcf=...`와 가장 비슷한 동작을 한다.
+- 기본 키 동작을 기대할 때 이쪽이 맞다.
+
+### 6.2 passive mode
+- `mujoco.viewer.launch_passive(...)`
+- Python 코드가 바깥에서 직접 step을 돌린다.
+- 그래서 pause/run 같은 일부 viewer 키 동작이 직관과 다를 수 있다.
+- 대신 자동 reset, scripted joint motion 같은 커스텀 루프를 넣기 쉽다.
+
+이번 수정 후 기본 `run_viewer.py`는 interactive mode를 기본값으로 쓰고, 예전 방식은 `--mode passive`로만 실행되게 바꿨다.
+
+## 7. 왜 `pip install -e .`를 추가했는가
+
+기존에는 루트에 `pyproject.toml`이나 `setup.py`가 없어서 editable install이 불가능했다.
+
+이번에는 루트에 `pyproject.toml`을 추가해서 아래가 가능해졌다.
+
+```bash
+conda activate mujoco_env
+cd /Users/pilt/project-collection/ros2/graduation-prj
+python -m pip install -e .
+```
+
+설치 후에는 아래처럼 실행할 수 있다.
+
+```bash
+pingpong-rl-viewer
+python -m pingpong_rl.viewer
+```
