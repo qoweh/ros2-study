@@ -2,12 +2,15 @@ from __future__ import annotations
 
 import argparse
 import math
+import subprocess
+import sys
 import time
 
 import mujoco.viewer
 
 from pingpong_rl.controllers import JointPositionController
 from pingpong_rl.envs import PingPongSim
+from pingpong_rl.utils.paths import SCENE_XML_PATH
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -34,14 +37,9 @@ def _make_sim(control_dt: float, ball_height: float) -> PingPongSim:
 
 
 def _run_interactive(args: argparse.Namespace) -> None:
-    state: dict[str, PingPongSim] = {}
-
-    def loader() -> tuple:
-        sim = _make_sim(args.control_dt, args.ball_height)
-        state["sim"] = sim
-        return sim.model, sim.data
-
-    mujoco.viewer.launch(loader=loader)
+    _ = args
+    command = [sys.executable, "-m", "mujoco.viewer", f"--mjcf={SCENE_XML_PATH}"]
+    raise SystemExit(subprocess.run(command, check=False).returncode)
 
 
 def _run_passive(args: argparse.Namespace) -> None:

@@ -21,6 +21,10 @@
 - Franka `hand` body에 racket body 추가
 - 초기 table은 제거
 - 라켓 형상을 단순 원판에서 paddle 형태에 가깝게 수정
+- 라켓 원점을 손잡이 그립 위치로 이동
+- paddle 중심을 `racket_center` site로 분리
+- 손잡이 축을 지면과 거의 평행하게 재배치
+- 공 reset 위치를 `racket_center` 정중앙 위로 고정
 
 ### 2.3 Python 실행 계층 구성
 - scene 로더 추가
@@ -65,6 +69,21 @@ PYTHONPATH=pingpong_rl/src python -m unittest discover -s pingpong_rl/tests -p '
 - 기존 `run_viewer.py`는 `launch_passive`를 사용했다.
 - 이 모드는 Python 쪽에서 직접 시뮬레이션 루프를 돌리므로 기본 MuJoCo viewer와 키 동작이 일부 다르게 느껴질 수 있다.
 - 현재는 기본 실행을 interactive mode로 바꿔 MuJoCo 기본 viewer와 더 가깝게 맞췄다.
+
+### 4.4 라켓과 공이 손 아래에 겹쳐 보이던 문제
+- 원래는 racket body 원점이 paddle 쪽에 있어, 손가락이 손잡이를 잡고 있다는 시각적 해석이 깨졌다.
+- 또한 공 spawn도 같은 원점을 기준으로 생각하기 쉬워 보기가 혼란스러웠다.
+- 수정 후에는:
+	- `racket` body 원점은 손가락 사이의 그립 위치
+	- `racket_center` site는 paddle strike 중심
+	- 공은 `racket_center` 위에 spawn
+
+이 구조로 바꾸면서 집게 아래에 공이 달린 것처럼 보이는 해석 오류를 줄였다.
+
+### 4.5 현재 reset 상태 검증
+- 공 중심은 paddle 중심의 바로 위에 위치한다.
+- reset 직후 contact 수는 0으로 확인했다.
+- 즉 초기 상태에서 공이 로봇팔에 부딪히는 문제는 현재 기준으로 제거했다.
 
 ## 5. 다음 작업 제안
 

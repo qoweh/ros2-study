@@ -21,9 +21,12 @@ class PingPongSim:
         self.ball_joint_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_JOINT, "ball_joint")
         self.ball_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "ball")
         self.racket_body_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_BODY, "racket")
+        self.racket_site_id = mujoco.mj_name2id(self.model, mujoco.mjtObj.mjOBJ_SITE, "racket_center")
 
-        if self.ball_joint_id < 0 or self.ball_body_id < 0 or self.racket_body_id < 0:
-            raise ValueError("Scene is missing one of the required bodies or joints: ball_joint, ball, racket.")
+        if self.ball_joint_id < 0 or self.ball_body_id < 0 or self.racket_body_id < 0 or self.racket_site_id < 0:
+            raise ValueError(
+                "Scene is missing one of the required objects: ball_joint, ball, racket, racket_center."
+            )
 
         self._ball_qpos_adr = self.model.jnt_qposadr[self.ball_joint_id]
         self._ball_dof_adr = self.model.jnt_dofadr[self.ball_joint_id]
@@ -42,6 +45,10 @@ class PingPongSim:
 
     @property
     def racket_position(self) -> np.ndarray:
+        return self.data.site_xpos[self.racket_site_id].copy()
+
+    @property
+    def racket_grip_position(self) -> np.ndarray:
         return self.data.xpos[self.racket_body_id].copy()
 
     def reset(

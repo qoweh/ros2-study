@@ -88,6 +88,46 @@ Franka menagerie asset에는 actuator가 이미 들어 있다.
 
 이런 경우 reset 조건을 더 보강해야 한다.
 
+## 8. 왜 라켓이 집게 아래에 매달린 것처럼 보였는가
+
+초기 구현에서는 `racket` body 원점을 paddle head 쪽에 가깝게 두었다.
+
+그 상태에서 `reset_ball_above_racket()`가 `racket` body 원점 기준으로 공을 spawn하니 다음 문제가 같이 생겼다.
+
+- 라켓이 손가락 사이가 아니라 집게 아래에 매달린 것처럼 보임
+- 공도 손에 가까운 이상한 위치에 있는 것처럼 보임
+
+이번 수정에서는 역할을 분리했다.
+
+- `racket` body 원점:
+  - 실제로 손가락이 잡는 손잡이 위치
+- `racket_center` site:
+  - paddle head 중심
+  - 공 spawn과 타격 기준점으로 사용
+
+즉 지금은 grip 위치와 strike 위치를 분리해서 해석한다.
+
+정리하면:
+- 손가락 사이에 있는 것은 `racket` body 원점이다.
+- 공은 `racket_center` 위에서 생성된다.
+- 예전에 집게 아래 공처럼 보이던 것은 실제 공이 아니라 paddle head가 섞여 보인 영향이 컸다.
+
+## 9. 현재 라켓 배치 원칙
+
+이번 수정 후 라켓은 다음 원칙으로 배치한다.
+
+- 손잡이 축:
+  - 지면과 거의 평행
+  - 손가락 사이를 통과
+- paddle head:
+  - 손잡이 한쪽에 연결된 한 덩어리
+  - grip 원점과 분리된 `racket_center`를 가짐
+- 공 초기 위치:
+  - `racket_center` 바로 위
+  - reset 직후 로봇/라켓과 접촉하지 않음
+
+즉 지금은 “집게가 손잡이를 옆에서 물고 있는 형태”로 정리한 상태다.
+
 ## 6. 왜 viewer 키가 달랐는가
 
 MuJoCo viewer에는 크게 두 가지 실행 방식이 있다.
