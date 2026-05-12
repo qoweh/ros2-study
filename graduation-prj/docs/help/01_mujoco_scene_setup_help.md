@@ -1,0 +1,89 @@
+# MuJoCo 씬 구성 도움말
+
+이 문서는 현재 구성한 MuJoCo 씬에서 처음 보면 낯선 부분만 짧게 정리한 설명 문서다.
+
+## 1. 왜 `panda.xml`의 `meshdir`를 바꿨는가
+
+Franka menagerie의 `panda.xml`은 원래 자기 파일 기준으로 `assets` 폴더를 찾는다.
+
+하지만 이번 프로젝트에서는 상위 scene 파일인 `pingpong_rl/assets/scene.xml`에서 `franka/panda.xml`을 include했다. 이 경우 top-level scene 기준으로 상대 경로가 해석되어 메시 파일을 잘못 찾을 수 있다.
+
+그래서 현재 프로젝트 복사본에서는 다음처럼 바꿨다.
+
+- 기존: `meshdir="assets"`
+- 변경: `meshdir="franka/assets"`
+
+의미:
+- top-level scene 기준으로도 Franka 메시 파일을 정확히 찾게 만든 것이다.
+
+## 2. 왜 라켓을 `hand` body 자식으로 붙였는가
+
+선택지는 크게 두 가지였다.
+
+### 2.1 자식 body로 직접 부착
+- 장점:
+  - 단순하다.
+  - hand를 그대로 따라간다.
+  - 초기 디버깅이 쉽다.
+- 단점:
+  - robot asset 내부를 직접 수정하게 된다.
+
+### 2.2 별도 body + weld constraint
+- 장점:
+  - 라켓 자산을 더 독립적으로 다룰 수 있다.
+- 단점:
+  - 초기 위치/자세 설정이 더 번거롭다.
+  - scene 안정화 전에는 오히려 복잡도를 높인다.
+
+현재 단계는 물리 확인이 우선이라 direct child 방식을 사용했다.
+
+## 3. 공 spawn/reset은 어떻게 동작하는가
+
+탁구공은 `freejoint`를 가진 body다.
+
+freejoint는 상태를 크게 두 묶음으로 가진다.
+
+- `qpos`
+  - 위치 3개
+  - 자세 quaternion 4개
+- `qvel`
+  - 선속도 3개
+  - 각속도 3개
+
+그래서 ball reset 시에는 아래를 함께 바꿔야 한다.
+
+- 위치를 원하는 spawn 지점으로 설정
+- quaternion을 `[1, 0, 0, 0]`으로 초기화
+- 속도를 원하는 값으로 설정
+- 각속도는 0으로 초기화
+
+## 4. joint control은 어떤 방식인가
+
+Franka menagerie asset에는 actuator가 이미 들어 있다.
+
+현재 코드는 `data.ctrl`에 joint target을 넣는 방식으로 arm을 제어한다.
+
+즉 지금 단계는 다음을 먼저 확인하는 단계다.
+
+- 원하는 joint target이 들어가는가
+- viewer에서 arm이 안정적으로 움직이는가
+- ball과 racket의 충돌이 기본적으로 성립하는가
+
+아직 end-effector 제어기나 RL wrapper는 붙이지 않았다.
+
+## 5. 지금 남아 있는 핵심 튜닝 포인트
+
+### 5.1 라켓 orientation
+- 현재는 붙어 있기만 하면 되는 최소 세팅이다.
+- 실제 탁구처럼 위로 튀기려면 viewer에서 라켓 면 방향을 보고 조정해야 한다.
+
+### 5.2 contact 반발감
+- MuJoCo에서 실제 반발 느낌은 단순한 restitution 한 값으로 끝나지 않는다.
+- `solref`, `solimp`, `friction`, 질량 조합이 같이 영향을 준다.
+
+### 5.3 reset robustness
+- 공이 너무 빨리 떨어질 때
+- 라켓과 겹쳐 spawn될 때
+- table 아래로 들어갈 때
+
+이런 경우 reset 조건을 더 보강해야 한다.

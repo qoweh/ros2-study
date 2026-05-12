@@ -1,5 +1,5 @@
 <mujoco model="panda">
-  <compiler angle="radian" meshdir="assets" autolimits="true"/>
+  <compiler angle="radian" meshdir="franka/assets" autolimits="true"/>
 
   <option integrator="implicitfast"/>
 
@@ -215,6 +215,13 @@
                       <geom mesh="hand_3" material="white" class="visual"/>
                       <geom mesh="hand_4" material="off_white" class="visual"/>
                       <geom mesh="hand_c" class="collision"/>
+                      <body name="racket" pos="0 0 0.14" quat="0.7071068 0 0.7071068 0">
+                        <geom name="racket_handle" type="cylinder" size="0.012 0.08" pos="0 0 -0.08"
+                          rgba="0.55 0.36 0.2 1" contype="0" conaffinity="0"/>
+                        <geom name="racket_head" type="cylinder" size="0.075 0.006" pos="0 0 0"
+                          mass="0.12" rgba="0.85 0.1 0.1 1" friction="0.6 0.01 0.002"
+                          solref="0.003 1" solimp="0.95 0.99 0.001"/>
+                      </body>
                       <body name="left_finger" pos="0 0 0.0584">
                         <inertial mass="0.015" pos="0 0 0" diaginertia="2.375e-6 2.375e-6 7.5e-7"/>
                         <joint name="finger_joint1" class="finger"/>

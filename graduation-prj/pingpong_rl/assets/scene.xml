@@ -3,52 +3,35 @@
 
     <option timestep="0.002" gravity="0 0 -9.81"/>
 
-    <asset>
-        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="512"/>
-        <texture name="texplane" type="2d" builtin="checker" rgb1=".2 .3 .4" rgb2=".1 0.15 0.2" width="512" height="512" mark="cross" markrgb=".8 .8 .8"/>
-        <material name="matplane" reflectance="0.3" texture="texplane" texrepeat="1 1" texuniform="true"/>
-    </asset>
+    <statistic center="0.35 0 0.45" extent="1.4"/>
 
     <visual>
-        <map force="0.1" zfar="30"/>
+        <headlight diffuse="0.6 0.6 0.6" ambient="0.3 0.3 0.3" specular="0 0 0"/>
         <rgba haze="0.15 0.25 0.35 1"/>
-        <quality shadowsize="2048"/>
-        <global offwidth="800" offheight="800"/>
+        <global azimuth="120" elevation="-20"/>
     </visual>
+
+    <asset>
+        <texture type="skybox" builtin="gradient" rgb1="0.3 0.5 0.7" rgb2="0 0 0" width="512" height="3072"/>
+        <texture type="2d" name="groundplane" builtin="checker" mark="edge" rgb1="0.2 0.3 0.4"
+            rgb2="0.1 0.2 0.3" markrgb="0.8 0.8 0.8" width="300" height="300"/>
+        <material name="groundplane" texture="groundplane" texuniform="true" texrepeat="5 5" reflectance="0.2"/>
+    </asset>
 
     <worldbody>
         <light pos="0 0 1.5" dir="0 0 -1" directional="true"/>
-        <geom name="floor" type="plane" size="0 0 0.05" material="matplane"/>
-        
-        <!-- Table -->
-        <body name="table" pos="0.5 0 0">
-            <geom name="table_top" type="box" size="0.6 0.6 0.05" pos="0 0 0.05" rgba="0.6 0.6 0.6 1"/>
+        <geom name="floor" type="plane" size="0 0 0.05" material="groundplane"/>
+
+        <body name="table" pos="0.62 0 0">
+            <geom name="table_top" type="box" size="0.45 0.5 0.04" pos="0 0 0.72"
+                rgba="0.16 0.42 0.28 1" friction="0.8 0.01 0.002"/>
+            <geom name="table_leg" type="box" size="0.08 0.08 0.34" pos="0 0 0.34" rgba="0.3 0.3 0.3 1"/>
         </body>
 
-        <!-- Ping pong ball -->
-        <body name="ball" pos="0.5 0 0.5">
+        <body name="ball" pos="0.48 0 0.95">
             <freejoint name="ball_joint"/>
-            <geom name="ball_geom" type="sphere" size="0.02" mass="0.0027" rgba="1 0.5 0 1" solref="0.002 1" solimp="0.95 0.99 0.001"/>
+            <geom name="ball_geom" type="sphere" size="0.02" mass="0.0027" rgba="1 0.6 0.1 1"
+                friction="0.18 0.002 0.0001" solref="0.003 1" solimp="0.95 0.99 0.001"/>
         </body>
     </worldbody>
-
-    <!-- Attach Racket to Robot -->
-    <!-- The Franka XML defines body "hand" as the end-effector. We will add a racket to it dynamically or redefine it.
-         For now, we'll create a weld constraint if we make the racket a separate body,
-         or we can just append it inside the hand body if we modify the included XML,
-         or use mjb. We will use a separate body and a weld equality constraint.
-         Actually, we can insert the racket body here and weld it to "hand" -->
-    
-    <worldbody>
-        <!-- Racket body -->
-        <body name="racket" pos="0.5 0 0.2">
-            <geom name="racket_handle" type="cylinder" size="0.015 0.05" pos="0 0 -0.05" rgba="0.6 0.4 0.2 1"/>
-            <geom name="racket_pad" type="cylinder" size="0.08 0.005" pos="0 0 0" rgba="1 0 0 1" solref="0.002 1" solimp="0.95 0.99 0.001"/>
-        </body>
-    </worldbody>
-
-    <equality>
-        <weld name="racket_to_hand" body1="hand" body2="racket" relpose="0 0 0.1 1 0 0 0"/>
-    </equality>
-
 </mujoco>
