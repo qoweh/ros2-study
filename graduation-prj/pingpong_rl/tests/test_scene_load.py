@@ -11,12 +11,36 @@ SRC_ROOT = ROOT / "src"
 if str(SRC_ROOT) not in sys.path:
     sys.path.insert(0, str(SRC_ROOT))
 
-from pingpong_rl.envs import PingPongSim
+from pingpong_rl.envs import PingPongEEDeltaEnv, PingPongSim
 from pingpong_rl.controllers import RacketCartesianController
-from pingpong_rl.viewer import _passive_viewer_is_running
+from pingpong_rl.viewer import _ee_demo_target_position, _passive_viewer_is_running, parse_args
 
 
 class PingPongSimTest(unittest.TestCase):
+    def test_ball_bounces_off_floor_after_tuning(self) -> None:
+        sim = PingPongSim()
+        sim.reset(ball_position=(0.2, -0.25, 1.0), ball_velocity=(0.0, 0.0, 0.0))
+
+        impact_seen = False
+        post_impact_peak = None
+        previous_vz = float(sim.ball_velocity[2])
+        for _ in range(5000):
+            sim.step(n_substeps=1)
+            ball_height = float(sim.ball_position[2])
+            vertical_velocity = float(sim.ball_velocity[2])
+            if not impact_seen and sim.has_contact("ball_geom", "floor"):
+                impact_seen = True
+            elif impact_seen:
+                if vertical_velocity > 0.0:
+                    post_impact_peak = ball_height if post_impact_peak is None else max(post_impact_peak, ball_height)
+                if post_impact_peak is not None and previous_vz > 0.0 and vertical_velocity <= 0.0:
+                    break
+            previous_vz = vertical_velocity
+
+        self.assertTrue(impact_seen)
+        self.assertIsNotNone(post_impact_peak)
+        self.assertGreater(post_impact_peak, 0.2)
+
     def test_scene_loads_and_ball_resets_above_racket(self) -> None:
         sim = PingPongSim()
         sim.reset()
@@ -126,6 +150,40 @@ class PingPongSimTest(unittest.TestCase):
 
         self.assertTrue(_passive_viewer_is_running(FakeViewer(1)))
         self.assertFalse(_passive_viewer_is_running(FakeViewer(0)))
+
+    def test_viewer_parse_args_accepts_ee_demo(self) -> None:
+        args = parse_args(["--demo-controller", "ee", "--ee-axis", "x", "--demo-amplitude", "0.03"])
+
+        self.assertEqual(args.mode, "passive")
+        self.assertEqual(args.demo_controller, "ee")
+        self.assertEqual(args.ee_axis, "x")
+        self.assertAlmostEqual(args.demo_amplitude, 0.03, places=6)
+
+    def test_ee_demo_target_position_only_moves_selected_axis(self) -> None:
+        anchor = np.array([0.5, 0.1, 0.6])
+        target = _ee_demo_target_position(anchor, "z", amplitude=0.04, frequency=0.5, time_seconds=0.5)
+
+        self.assertAlmostEqual(target[0], anchor[0], places=6)
+        self.assertAlmostEqual(target[1], anchor[1], places=6)
+        self.assertGreater(target[2], anchor[2])
+
+    def test_ee_delta_env_step_clips_action_and_returns_contract(self) -> None:
+        env = PingPongEEDeltaEnv()
+        observation = env.reset()
+
+        self.assertEqual(set(observation), {"joint_positions", "joint_velocities", "racket_position", "ball_position", "ball_velocity"})
+        initial_target = env.target_position.copy()
+        next_observation, reward, terminated, info = env.step((0.0, 0.0, 0.1))
+
+        self.assertEqual(next_observation["joint_positions"].shape, (7,))
+        self.assertEqual(next_observation["joint_velocities"].shape, (7,))
+        self.assertEqual(next_observation["racket_position"].shape, (3,))
+        self.assertEqual(next_observation["ball_position"].shape, (3,))
+        self.assertEqual(next_observation["ball_velocity"].shape, (3,))
+        self.assertAlmostEqual(float(info["applied_action"][2]), env.action_limit, places=6)
+        self.assertGreater(float(info["target_position"][2]), float(initial_target[2]))
+        self.assertIsInstance(reward, float)
+        self.assertFalse(terminated)
 
 
 if __name__ == "__main__":

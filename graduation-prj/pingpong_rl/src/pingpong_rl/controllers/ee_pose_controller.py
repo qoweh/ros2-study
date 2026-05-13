@@ -5,7 +5,7 @@ from typing import Sequence
 import mujoco
 import numpy as np
 
-from pingpong_rl.envs import PingPongSim
+from pingpong_rl.envs.pingpong_env import PingPongSim
 
 
 class RacketCartesianController:

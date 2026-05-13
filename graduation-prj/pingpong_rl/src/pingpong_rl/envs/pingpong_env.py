@@ -44,6 +44,14 @@ class PingPongSim:
         return float(self._home_ctrl[7])
 
     @property
+    def joint_positions(self) -> np.ndarray:
+        return self.data.qpos[:7].copy()
+
+    @property
+    def joint_velocities(self) -> np.ndarray:
+        return self.data.qvel[:7].copy()
+
+    @property
     def ball_position(self) -> np.ndarray:
         return self.data.xpos[self.ball_body_id].copy()
 
