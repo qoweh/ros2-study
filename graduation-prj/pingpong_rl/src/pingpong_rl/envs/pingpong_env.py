@@ -40,6 +40,10 @@ class PingPongSim:
         return self._home_joint_targets.copy()
 
     @property
+    def home_gripper_target(self) -> float:
+        return float(self._home_ctrl[7])
+
+    @property
     def ball_position(self) -> np.ndarray:
         return self.data.xpos[self.ball_body_id].copy()
 
@@ -51,6 +55,10 @@ class PingPongSim:
     def racket_grip_position(self) -> np.ndarray:
         return self.data.xpos[self.racket_body_id].copy()
 
+    @property
+    def ball_velocity(self) -> np.ndarray:
+        return self.data.qvel[self._ball_dof_adr:self._ball_dof_adr + 3].copy()
+
     def reset(
         self,
         ball_position: Sequence[float] | None = None,
@@ -59,7 +67,6 @@ class PingPongSim:
     ) -> mujoco.MjData:
         mujoco.mj_resetDataKeyframe(self.model, self.data, 0)
         self.data.ctrl[:] = self._home_ctrl
-        self.data.ctrl[7] = 255.0
         mujoco.mj_forward(self.model, self.data)
 
         if ball_position is None:
@@ -102,19 +109,78 @@ class PingPongSim:
         spawn_position = self.racket_position + np.array([xy_offset_array[0], xy_offset_array[1], height])
         return self.spawn_ball(spawn_position, velocity)
 
-    def set_arm_joint_targets(self, joint_targets: Sequence[float], gripper_target: float = 255.0) -> np.ndarray:
+    def set_arm_joint_targets(self, joint_targets: Sequence[float], gripper_target: float | None = None) -> np.ndarray:
         joint_targets_array = np.asarray(joint_targets, dtype=float)
         if joint_targets_array.shape != (7,):
             raise ValueError(f"Arm targets must have shape (7,), got {joint_targets_array.shape}.")
 
         self.data.ctrl[:7] = joint_targets_array
-        self.data.ctrl[7] = gripper_target
+        if gripper_target is not None:
+            self.data.ctrl[7] = gripper_target
         return self.data.ctrl[:8].copy()
+
+    def contact_pairs(self) -> list[tuple[str, str]]:
+        pairs: list[tuple[str, str]] = []
+        for index in range(self.data.ncon):
+            contact = self.data.contact[index]
+            geom1 = self.model.geom(contact.geom1).name
+            geom2 = self.model.geom(contact.geom2).name
+            pairs.append(tuple(sorted((geom1, geom2))))
+        return pairs
+
+    def has_contact(self, geom_a: str, geom_b: str) -> bool:
+        target = tuple(sorted((geom_a, geom_b)))
+        return target in self.contact_pairs()
+
+    def state_is_finite(self) -> bool:
+        return bool(np.isfinite(self.data.qpos).all() and np.isfinite(self.data.qvel).all())
+
+    def failure_reason(
+        self,
+        x_bounds: tuple[float, float] = (0.0, 1.35),
+        y_bounds: tuple[float, float] = (-0.6, 0.6),
+        z_bounds: tuple[float, float] = (-0.05, 2.0),
+        max_ball_speed: float = 8.0,
+    ) -> str | None:
+        if not self.state_is_finite():
+            return "nonfinite_state"
+        if self.has_contact("ball_geom", "floor"):
+            return "floor_contact"
+
+        ball_position = self.ball_position
+        within_x = x_bounds[0] <= ball_position[0] <= x_bounds[1]
+        within_y = y_bounds[0] <= ball_position[1] <= y_bounds[1]
+        within_z = z_bounds[0] <= ball_position[2] <= z_bounds[1]
+        if not (within_x and within_y and within_z):
+            return "ball_out_of_bounds"
+        if np.linalg.norm(self.ball_velocity) > max_ball_speed:
+            return "ball_speed_limit"
+        return None
+
+    def reset_if_failed(
+        self,
+        ball_height: float | None = None,
+        x_bounds: tuple[float, float] = (0.0, 1.35),
+        y_bounds: tuple[float, float] = (-0.6, 0.6),
+        z_bounds: tuple[float, float] = (-0.05, 2.0),
+        max_ball_speed: float = 8.0,
+    ) -> str | None:
+        reason = self.failure_reason(
+            x_bounds=x_bounds,
+            y_bounds=y_bounds,
+            z_bounds=z_bounds,
+            max_ball_speed=max_ball_speed,
+        )
+        if reason is None:
+            return None
+
+        self.reset(ball_height=self._default_ball_height if ball_height is None else float(ball_height))
+        return reason
 
     def step(
         self,
         joint_targets: Sequence[float] | None = None,
-        gripper_target: float = 255.0,
+        gripper_target: float | None = None,
         n_substeps: int | None = None,
     ) -> mujoco.MjData:
         if joint_targets is not None:

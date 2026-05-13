@@ -40,12 +40,16 @@
   - Franka Panda
   - 탁구채
   - 탁구공
-  - 바닥과 테이블
+  - 바닥
 - MuJoCo scene 로딩 검증 완료
 - ball freejoint 기반 spawn/reset 구현 완료
 - joint target 기반 arm control API 구현 완료
-- passive viewer 실행 스크립트 추가 완료
-- 기본 unittest 추가 완료
+- editable install 패키징 설정 완료
+- interactive/passive viewer 분리 완료
+- 라켓 contact geom을 flat paddle 기준으로 1차 튜닝 완료
+- contact query API와 기본 unittest 추가 완료
+- failure/reset 판정 API 완료
+- headless scripted bounce baseline 추가 완료
 
 ### 2.2 현재 구현 파일
 - scene: `pingpong_rl/assets/scene.xml`
@@ -53,6 +57,7 @@
 - environment wrapper: `pingpong_rl/src/pingpong_rl/envs/pingpong_env.py`
 - joint controller: `pingpong_rl/src/pingpong_rl/controllers/joint_controller.py`
 - viewer script: `pingpong_rl/scripts/run_viewer.py`
+- bounce baseline script: `pingpong_rl/scripts/run_bounce_baseline.py`
 - test: `pingpong_rl/tests/test_scene_load.py`
 
 ## 3. 지금 바로 실행 가능한 것
@@ -61,19 +66,32 @@
 ```bash
 conda activate mujoco_env
 cd /Users/pilt/project-collection/ros2/graduation-prj
-PYTHONPATH=pingpong_rl/src python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
+python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
 ```
 
 ### 3.2 Viewer 실행
 ```bash
 conda activate mujoco_env
 cd /Users/pilt/project-collection/ros2/graduation-prj
-PYTHONPATH=pingpong_rl/src python pingpong_rl/scripts/run_viewer.py --demo-joint 4
+pingpong-rl-viewer --demo-joint 4
 ```
 
 설명:
 - `--demo-joint 4`는 4번 관절에 작은 sine motion을 줘서 joint control이 적용되는지 확인하는 용도다.
-- 공이 너무 아래로 떨어지면 자동으로 라켓 위로 다시 spawn된다.
+- 기본 interactive mode는 stock MuJoCo viewer CLI에 scene 경로를 넘겨 실행한다.
+- custom loop 확인이 필요할 때만 `--mode passive`를 사용한다.
+
+### 3.3 Headless baseline 실행
+```bash
+conda activate mujoco_env
+cd /Users/pilt/project-collection/ros2/graduation-prj
+python pingpong_rl/scripts/run_bounce_baseline.py --episodes 3 --max-steps 900
+```
+
+설명:
+- 각 episode마다 공을 `racket_center` 위에서 다시 떨어뜨린다.
+- 출력에는 `first_target_contact`, `failure_reason`, `steps`, `time`이 포함된다.
+- 현재 기준 baseline 결과는 `racket_first=3/3`, 실패 원인은 `floor_contact`다.
 
 ## 4. 현재 물리/제어 기준값
 
@@ -91,10 +109,10 @@ PYTHONPATH=pingpong_rl/src python pingpong_rl/scripts/run_viewer.py --demo-joint
 ## 5. 다음 작업 체크리스트
 
 ### 5.1 바로 이어서 할 것
-- racket orientation을 viewer에서 보고 실제 튕기기 방향에 맞게 조정
-- ball-racket contact 반발감 튜닝
-- 공이 라켓 중심 근처에 spawn되도록 spawn 위치 보정
-- reset 조건을 더 안정적으로 다듬기
+- end-effector 제어 계층을 넣을지 joint target baseline으로 먼저 갈지 결정
+- Gymnasium wrapper 직전 observation/action 인터페이스 고정
+- baseline rollout에서 쓸 성공 조건과 reward 초안 정의
+- passive viewer와 baseline 출력을 연결할 간단한 디버그 HUD 또는 로깅 포맷 정리
 
 ### 5.2 그 다음 단계
 - end-effector 제어 계층 추가 여부 결정
@@ -126,4 +144,6 @@ PYTHONPATH=pingpong_rl/src python pingpong_rl/scripts/run_viewer.py --demo-joint
 ## 7. 주의할 점
 - 현재 goal은 RL이 아니라 scene 안정화다.
 - contact 품질과 reset 일관성이 학습 성능보다 먼저다.
-- 라켓 방향과 ball spawn 위치는 아직 1차 초안이다. viewer 확인 후 미세 조정이 필요하다.
+- ball spawn은 현재 `racket_center` 정중앙 위 `0.22m`로 정렬되어 있고, 회귀 테스트 기준 첫 접촉은 floor보다 racket이 먼저다.
+- 현재 기본 실패 원인은 `floor_contact`, `ball_out_of_bounds`, `nonfinite_state`, `ball_speed_limit`로 정리되어 있다.
+- 다음 단계의 핵심은 spawn 보정보다 controller/observation 인터페이스를 고정하는 것이다.

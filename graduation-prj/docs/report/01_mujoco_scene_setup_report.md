@@ -7,7 +7,7 @@
 - Franka Emika Panda 로봇팔
 - 탁구채
 - 탁구공
-- 바닥/테이블
+- 바닥
 
 ## 2. 이번 작업에서 구현한 내용
 
@@ -34,11 +34,16 @@
 - passive viewer 실행 스크립트 추가
 - editable install용 패키징 설정 추가
 - interactive viewer와 passive viewer를 분리
+- failure reason / reset helper 추가
+- headless bounce baseline 스크립트 추가
 
 ### 2.4 검증 코드 추가
 - scene load test 추가
 - ball reset test 추가
 - joint ctrl buffer 반영 test 추가
+- ball first-contact regression test 추가
+- out-of-bounds failure test 추가
+- floor-contact reset recovery test 추가
 
 ## 3. 검증 결과
 
@@ -47,13 +52,26 @@
 
 검증 명령:
 ```bash
-PYTHONPATH=pingpong_rl/src python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
+python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
 ```
 
 결과:
-- 2개 테스트 통과
+- 6개 테스트 통과
 - scene XML 로딩 성공
 - ball reset 및 joint target 반영 확인
+- centered drop 기준 첫 타격이 racket인 것 확인
+- flat paddle 적용 후 첫 floor contact 시점이 기존보다 늦어짐
+- failure reason이 `floor_contact`와 `ball_out_of_bounds`를 구분함
+
+추가 baseline 검증:
+```bash
+python pingpong_rl/scripts/run_bounce_baseline.py --episodes 3 --max-steps 900
+```
+
+baseline 결과:
+- 3/3 episode에서 첫 target contact가 `racket_head`
+- 3/3 episode에서 종료 원인은 `floor_contact`
+- 각 episode는 약 `1.672s` 시점에 종료
 
 ## 4. 작업 중 확인한 이슈
 
@@ -68,7 +86,7 @@ PYTHONPATH=pingpong_rl/src python -m unittest discover -s pingpong_rl/tests -p '
 ### 4.3 viewer 입력 차이
 - 기존 `run_viewer.py`는 `launch_passive`를 사용했다.
 - 이 모드는 Python 쪽에서 직접 시뮬레이션 루프를 돌리므로 기본 MuJoCo viewer와 키 동작이 일부 다르게 느껴질 수 있다.
-- 현재는 기본 실행을 interactive mode로 바꿔 MuJoCo 기본 viewer와 더 가깝게 맞췄다.
+- 현재는 기본 interactive 실행을 stock MuJoCo viewer CLI 위임 방식으로 바꿔 MuJoCo 기본 viewer와 더 가깝게 맞췄다.
 
 ### 4.4 라켓과 공이 손 아래에 겹쳐 보이던 문제
 - 원래는 racket body 원점이 paddle 쪽에 있어, 손가락이 손잡이를 잡고 있다는 시각적 해석이 깨졌다.
@@ -84,15 +102,16 @@ PYTHONPATH=pingpong_rl/src python -m unittest discover -s pingpong_rl/tests -p '
 - 공 중심은 paddle 중심의 바로 위에 위치한다.
 - reset 직후 contact 수는 0으로 확인했다.
 - 즉 초기 상태에서 공이 로봇팔에 부딪히는 문제는 현재 기준으로 제거했다.
+- 짧은 headless rollout에서 수치 불안정은 재현되지 않았다.
+- 현재 기준 첫 target contact는 `ball_geom`-`racket_head`이고, 이후 실패 상태는 바닥 접촉으로 정리된다.
 
 ## 5. 다음 작업 제안
 
 ### 5.1 바로 필요한 작업
-- viewer에서 라켓 면 방향 확인
-- ball spawn 위치를 라켓 중심에 더 맞게 조정
-- racket-ball 접촉 반발감 튜닝
+- observation/action 인터페이스를 RL wrapper 직전 수준으로 고정
+- baseline 기준 성공 조건과 reward 초안 정의
+- joint target baseline으로 먼저 갈지 EE control을 먼저 넣을지 결정
 
 ### 5.2 RL 전 준비 작업
-- scripted bounce baseline 작성
 - EE control 계층 추가 여부 결정
 - Gymnasium wrapper 도입 준비

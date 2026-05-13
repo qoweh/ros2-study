@@ -17,9 +17,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Launch the MuJoCo ping-pong scene viewer.")
     parser.add_argument(
         "--mode",
-        choices=("interactive", "passive"),
-        default="interactive",
-        help="Use MuJoCo's default interactive viewer or the previous passive scripted loop.",
+        choices=("interactive", "passive"), 
+        default="passive",
+        help="Default to the passive scripted loop so the project home pose/reset is applied; use interactive for the raw stock MuJoCo viewer.",
     )
     parser.add_argument("--ball-height", type=float, default=0.22, help="Ball spawn height above the racket in meters.")
     parser.add_argument("--reset-height", type=float, default=0.25, help="Passive mode only: reset the ball when it falls below this z height.")
@@ -41,6 +41,9 @@ def _run_interactive(args: argparse.Namespace) -> None:
     command = [sys.executable, "-m", "mujoco.viewer", f"--mjcf={SCENE_XML_PATH}"]
     raise SystemExit(subprocess.run(command, check=False).returncode)
 
+def _passive_viewer_is_running(viewer: mujoco.viewer.Handle) -> bool:
+    simulate = viewer._get_sim()
+    return bool(getattr(simulate, "run", 1))
 
 def _run_passive(args: argparse.Namespace) -> None:
     sim = _make_sim(args.control_dt, args.ball_height)
@@ -48,6 +51,11 @@ def _run_passive(args: argparse.Namespace) -> None:
 
     with mujoco.viewer.launch_passive(sim.model, sim.data) as viewer:
         while viewer.is_running():
+            viewer.sync()
+            if not _passive_viewer_is_running(viewer):
+                time.sleep(sim.model.opt.timestep * sim.n_substeps)
+                continue
+
             controller.reset()
             if args.demo_joint is not None:
                 joint_index = args.demo_joint - 1

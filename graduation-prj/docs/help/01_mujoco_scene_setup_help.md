@@ -73,18 +73,20 @@ Franka menagerie asset에는 actuator가 이미 들어 있다.
 
 ## 5. 지금 남아 있는 핵심 튜닝 포인트
 
-### 5.1 라켓 orientation
-- 현재는 붙어 있기만 하면 되는 최소 세팅이다.
-- 실제 탁구처럼 위로 튀기려면 viewer에서 라켓 면 방향을 보고 조정해야 한다.
+### 5.1 라켓 contact 면
+- 초기에 `racket_head`는 `ellipsoid`였다.
+- centered drop에서도 곡면 때문에 공이 옆으로 흐르기 쉬워서 현재는 얇은 `cylinder` contact geom으로 바꿨다.
+- 이 변경 후 기준 rollout에서 공의 첫 target contact는 floor가 아니라 racket으로 유지되고, 첫 floor contact 시점도 더 늦어졌다.
 
 ### 5.2 contact 반발감
 - MuJoCo에서 실제 반발 느낌은 단순한 restitution 한 값으로 끝나지 않는다.
 - `solref`, `solimp`, `friction`, 질량 조합이 같이 영향을 준다.
+- 현재는 paddle을 flat하게 만든 1차 튜닝만 끝난 상태고, 다음엔 scripted baseline에 맞춰 반발 궤적을 더 정교하게 볼 단계다.
 
 ### 5.3 reset robustness
-- 공이 너무 빨리 떨어질 때
-- 라켓과 겹쳐 spawn될 때
-- table 아래로 들어갈 때
+- 공이 바닥에 닿았을 때
+- 유효 workspace 밖으로 멀어졌을 때
+- 비정상 속도/자세로 드리프트할 때
 
 이런 경우 reset 조건을 더 보강해야 한다.
 
@@ -133,9 +135,8 @@ Franka menagerie asset에는 actuator가 이미 들어 있다.
 MuJoCo viewer에는 크게 두 가지 실행 방식이 있다.
 
 ### 6.1 interactive mode
-- `mujoco.viewer.launch(...)`
-- MuJoCo 기본 viewer가 시뮬레이션 루프를 직접 관리한다.
-- `python -m mujoco.viewer --mjcf=...`와 가장 비슷한 동작을 한다.
+- 현재 프로젝트에서는 stock MuJoCo viewer CLI를 subprocess로 실행한다.
+- macOS 환경에서 in-memory `launch(model, data)` 경로보다 scene path를 직접 넘기는 쪽이 더 안정적이었다.
 - 기본 키 동작을 기대할 때 이쪽이 맞다.
 
 ### 6.2 passive mode
@@ -144,7 +145,7 @@ MuJoCo viewer에는 크게 두 가지 실행 방식이 있다.
 - 그래서 pause/run 같은 일부 viewer 키 동작이 직관과 다를 수 있다.
 - 대신 자동 reset, scripted joint motion 같은 커스텀 루프를 넣기 쉽다.
 
-이번 수정 후 기본 `run_viewer.py`는 interactive mode를 기본값으로 쓰고, 예전 방식은 `--mode passive`로만 실행되게 바꿨다.
+이번 수정 후 기본 viewer 실행은 stock interactive viewer 위임이고, custom Python loop 확인이 필요할 때만 `--mode passive`를 쓴다.
 
 ## 7. 왜 `pip install -e .`를 추가했는가
 
