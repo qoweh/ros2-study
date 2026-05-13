@@ -31,6 +31,7 @@ class PingPongEEDeltaEnv:
         sim: PingPongSim | None = None,
         action_limit: float = 0.03,
         max_episode_steps: int = 300,
+        success_velocity_threshold: float = 0.5,
         ball_height: float = 0.22,
         contact_bonus: float = 1.0,
         height_reward_weight: float = 0.1,
@@ -40,6 +41,7 @@ class PingPongEEDeltaEnv:
         self.sim = PingPongSim() if sim is None else sim
         self.action_limit = float(action_limit)
         self.max_episode_steps = int(max_episode_steps)
+        self.success_velocity_threshold = float(success_velocity_threshold)
         self.ball_height = float(ball_height)
         self.contact_bonus = float(contact_bonus)
         self.height_reward_weight = float(height_reward_weight)
@@ -47,6 +49,10 @@ class PingPongEEDeltaEnv:
         self.failure_penalty = float(failure_penalty)
         if self.max_episode_steps < 1:
             raise ValueError(f"max_episode_steps must be positive, got {self.max_episode_steps}.")
+        if self.success_velocity_threshold < 0.0:
+            raise ValueError(
+                f"success_velocity_threshold must be non-negative, got {self.success_velocity_threshold}."
+            )
 
         self.step_count = 0
         self.controller = RacketCartesianController(self.sim, max_position_step=self.action_limit)
@@ -97,11 +103,19 @@ class PingPongEEDeltaEnv:
         self.sim.reset(ball_height=spawn_height, ball_velocity=ball_velocity)
         self.controller.reset()
         self.step_count = 0
+        reward_terms = self._reward_terms(failure_reason=None)
+        reward_logging = self._reward_logging(reward_terms)
         info: dict[str, object] = {
             "failure_reason": None,
+            "success_reason": None,
             "step_count": self.step_count,
+            "episode_steps": self.step_count,
             "target_position": self.controller.target_position,
             "time_limit_reached": False,
+            "terminated": False,
+            "truncated": False,
+            "reward_terms": reward_terms,
+            **reward_logging,
         }
         return self.observation(), info
 
@@ -113,24 +127,66 @@ class PingPongEEDeltaEnv:
         applied_action = np.clip(action_array, -self.action_limit, self.action_limit)
         self.controller.add_target_offset(applied_action)
         joint_targets = self.controller.compute_joint_targets()
-        self.sim.step(joint_targets=joint_targets, n_substeps=self.sim.n_substeps)
+        if hasattr(self.sim, "step_with_contact_trace"):
+            contact_trace = self.sim.step_with_contact_trace(
+                joint_targets=joint_targets,
+                n_substeps=self.sim.n_substeps,
+            )
+        else:
+            self.sim.step(joint_targets=joint_targets, n_substeps=self.sim.n_substeps)
+            contact_trace = {
+                "contact_observed": self.sim.has_contact("ball_geom", "racket_head"),
+                "contact_substep": None,
+                "contact_ball_velocity_x": None,
+                "contact_ball_velocity_y": None,
+                "contact_ball_velocity_z": None,
+                "contact_ball_speed_norm": None,
+            }
         self.step_count += 1
 
+        ball_velocity = self.sim.ball_velocity
         failure_reason = self.sim.failure_reason()
+        success_reason = self._success_reason(failure_reason)
         reward_terms = self._reward_terms(failure_reason)
+        reward_logging = self._reward_logging(reward_terms)
         reward = float(sum(reward_terms.values()))
-        terminated = failure_reason is not None
+        terminated = failure_reason is not None or success_reason is not None
         truncated = (not terminated) and self.step_count >= self.max_episode_steps
         info: dict[str, object] = {
             "applied_action": applied_action.copy(),
             "target_position": self.controller.target_position,
             "failure_reason": failure_reason,
+            "success_reason": success_reason,
             "reward_terms": reward_terms,
             "racket_contact": self.sim.has_contact("ball_geom", "racket_head"),
+            "ball_velocity_x": float(ball_velocity[0]),
+            "ball_velocity_y": float(ball_velocity[1]),
+            "ball_velocity_z": float(ball_velocity[2]),
+            "ball_vertical_velocity": float(ball_velocity[2]),
+            "ball_speed_norm": float(np.linalg.norm(ball_velocity)),
+            "contact_observed_during_step": bool(contact_trace["contact_observed"]),
+            "contact_substep": contact_trace["contact_substep"],
+            "contact_ball_velocity_x": contact_trace["contact_ball_velocity_x"],
+            "contact_ball_velocity_y": contact_trace["contact_ball_velocity_y"],
+            "contact_ball_velocity_z": contact_trace["contact_ball_velocity_z"],
+            "contact_ball_speed_norm": contact_trace["contact_ball_speed_norm"],
             "step_count": self.step_count,
+            "episode_steps": self.step_count,
             "time_limit_reached": truncated,
+            "terminated": terminated,
+            "truncated": truncated,
+            **reward_logging,
         }
         return self.observation(), reward, terminated, truncated, info
+
+    def _success_reason(self, failure_reason: str | None) -> str | None:
+        if failure_reason is not None:
+            return None
+        if not self.sim.has_contact("ball_geom", "racket_head"):
+            return None
+        if float(self.sim.ball_velocity[2]) <= self.success_velocity_threshold:
+            return None
+        return "upward_racket_bounce"
 
     def _reward_terms(self, failure_reason: str | None) -> dict[str, float]:
         reward_terms: dict[str, float] = {
@@ -146,3 +202,13 @@ class PingPongEEDeltaEnv:
         elif failure_reason is not None:
             reward_terms["failure_penalty"] = self.failure_penalty
         return reward_terms
+
+    def _reward_logging(self, reward_terms: dict[str, float]) -> dict[str, float]:
+        return {
+            "reward_total": float(sum(reward_terms.values())),
+            "reward_height": float(reward_terms["height_term"]),
+            "reward_distance": 0.0,
+            "reward_contact": float(reward_terms["contact_bonus"]),
+            "reward_success": 0.0,
+            "reward_failure": float(reward_terms["failure_penalty"]),
+        }

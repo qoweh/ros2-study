@@ -198,3 +198,41 @@ class PingPongSim:
         for _ in range(step_count):
             mujoco.mj_step(self.model, self.data)
         return self.data
+
+    def step_with_contact_trace(
+        self,
+        joint_targets: Sequence[float] | None = None,
+        gripper_target: float | None = None,
+        n_substeps: int | None = None,
+        contact_geoms: tuple[str, str] = ("ball_geom", "racket_head"),
+    ) -> dict[str, object]:
+        if joint_targets is not None:
+            self.set_arm_joint_targets(joint_targets, gripper_target)
+
+        step_count = self.n_substeps if n_substeps is None else max(1, int(n_substeps))
+        target_pair = tuple(sorted(contact_geoms))
+        contact_trace: dict[str, object] = {
+            "contact_observed": False,
+            "contact_substep": None,
+            "contact_ball_velocity_x": None,
+            "contact_ball_velocity_y": None,
+            "contact_ball_velocity_z": None,
+            "contact_ball_speed_norm": None,
+        }
+        for substep_index in range(1, step_count + 1):
+            mujoco.mj_step(self.model, self.data)
+            if contact_trace["contact_observed"]:
+                continue
+            if target_pair not in self.contact_pairs():
+                continue
+
+            ball_velocity = self.ball_velocity
+            contact_trace = {
+                "contact_observed": True,
+                "contact_substep": substep_index,
+                "contact_ball_velocity_x": float(ball_velocity[0]),
+                "contact_ball_velocity_y": float(ball_velocity[1]),
+                "contact_ball_velocity_z": float(ball_velocity[2]),
+                "contact_ball_speed_norm": float(np.linalg.norm(ball_velocity)),
+            }
+        return contact_trace

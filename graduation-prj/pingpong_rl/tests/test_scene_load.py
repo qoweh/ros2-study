@@ -178,8 +178,19 @@ class PingPongSimTest(unittest.TestCase):
             {"joint_positions", "joint_velocities", "racket_position", "target_position", "ball_position", "ball_velocity"},
         )
         self.assertIsNone(reset_info["failure_reason"])
+        self.assertIsNone(reset_info["success_reason"])
         self.assertEqual(reset_info["step_count"], 0)
+        self.assertEqual(reset_info["episode_steps"], 0)
         self.assertFalse(reset_info["time_limit_reached"])
+        self.assertFalse(reset_info["terminated"])
+        self.assertFalse(reset_info["truncated"])
+        self.assertIn("reward_terms", reset_info)
+        self.assertAlmostEqual(float(reset_info["reward_total"]), sum(reset_info["reward_terms"].values()), places=6)
+        self.assertAlmostEqual(float(reset_info["reward_height"]), float(reset_info["reward_terms"]["height_term"]), places=6)
+        self.assertAlmostEqual(float(reset_info["reward_contact"]), float(reset_info["reward_terms"]["contact_bonus"]), places=6)
+        self.assertAlmostEqual(float(reset_info["reward_failure"]), float(reset_info["reward_terms"]["failure_penalty"]), places=6)
+        self.assertEqual(float(reset_info["reward_distance"]), 0.0)
+        self.assertEqual(float(reset_info["reward_success"]), 0.0)
         np.testing.assert_allclose(unpacked_observation["target_position"], env.target_position)
         initial_target = env.target_position.copy()
         next_observation, reward, terminated, truncated, info = env.step((0.0, 0.0, 0.1))
@@ -198,8 +209,20 @@ class PingPongSimTest(unittest.TestCase):
             float(info["target_position"][2]),
             places=6,
         )
+        self.assertIsNone(info["success_reason"])
         self.assertEqual(info["step_count"], 1)
+        self.assertEqual(info["episode_steps"], 1)
         self.assertFalse(info["time_limit_reached"])
+        self.assertFalse(info["terminated"])
+        self.assertFalse(info["truncated"])
+        self.assertAlmostEqual(float(info["reward_total"]), sum(info["reward_terms"].values()), places=6)
+        self.assertAlmostEqual(float(info["reward_height"]), float(info["reward_terms"]["height_term"]), places=6)
+        self.assertAlmostEqual(float(info["reward_contact"]), float(info["reward_terms"]["contact_bonus"]), places=6)
+        self.assertAlmostEqual(float(info["reward_failure"]), float(info["reward_terms"]["failure_penalty"]), places=6)
+        self.assertEqual(float(info["reward_distance"]), 0.0)
+        self.assertEqual(float(info["reward_success"]), 0.0)
+        self.assertAlmostEqual(float(info["ball_vertical_velocity"]), float(info["ball_velocity_z"]), places=6)
+        self.assertGreaterEqual(float(info["ball_speed_norm"]), 0.0)
         self.assertIsInstance(reward, float)
         self.assertFalse(terminated)
         self.assertFalse(truncated)
@@ -217,18 +240,106 @@ class PingPongSimTest(unittest.TestCase):
         self.assertFalse(terminated_1)
         self.assertFalse(truncated_1)
         self.assertEqual(info_1["step_count"], 1)
+        self.assertEqual(info_1["episode_steps"], 1)
         self.assertFalse(info_1["time_limit_reached"])
+        self.assertFalse(info_1["terminated"])
+        self.assertFalse(info_1["truncated"])
         self.assertFalse(terminated_2)
         self.assertTrue(truncated_2)
         self.assertEqual(info_2["step_count"], 2)
+        self.assertEqual(info_2["episode_steps"], 2)
         self.assertTrue(info_2["time_limit_reached"])
+        self.assertFalse(info_2["terminated"])
+        self.assertTrue(info_2["truncated"])
         self.assertEqual(env.step_count, 2)
 
         _, reset_info_after = env.reset()
 
         self.assertEqual(env.step_count, 0)
         self.assertEqual(reset_info_after["step_count"], 0)
+        self.assertEqual(reset_info_after["episode_steps"], 0)
         self.assertFalse(reset_info_after["time_limit_reached"])
+
+    def test_ee_delta_env_success_requires_racket_contact_and_upward_ball_velocity(self) -> None:
+        class FakeSim:
+            def __init__(self) -> None:
+                self.n_substeps = 1
+                self._joint_positions = np.zeros(7, dtype=float)
+                self._joint_velocities = np.zeros(7, dtype=float)
+                self._racket_position = np.array([0.55, 0.125, 0.52], dtype=float)
+                self._ball_position = np.array([0.55, 0.125, 0.62], dtype=float)
+                self._ball_velocity = np.zeros(3, dtype=float)
+                self._racket_contact = False
+
+            @property
+            def joint_positions(self) -> np.ndarray:
+                return self._joint_positions.copy()
+
+            @property
+            def joint_velocities(self) -> np.ndarray:
+                return self._joint_velocities.copy()
+
+            @property
+            def racket_position(self) -> np.ndarray:
+                return self._racket_position.copy()
+
+            @property
+            def ball_position(self) -> np.ndarray:
+                return self._ball_position.copy()
+
+            @property
+            def ball_velocity(self) -> np.ndarray:
+                return self._ball_velocity.copy()
+
+            def reset(self, ball_height: float | None = None, ball_velocity: tuple[float, float, float] = (0.0, 0.0, 0.0)) -> None:
+                self._ball_position = np.array([0.55, 0.125, 0.52 + (0.22 if ball_height is None else ball_height)], dtype=float)
+                self._ball_velocity = np.asarray(ball_velocity, dtype=float)
+                self._racket_contact = False
+
+            def step(self, joint_targets: np.ndarray | None = None, n_substeps: int | None = None) -> None:
+                self._racket_contact = True
+                self._ball_velocity = np.array([0.02, 0.0, 0.8], dtype=float)
+
+            def failure_reason(self) -> None:
+                return None
+
+            def has_contact(self, geom_a: str, geom_b: str) -> bool:
+                return self._racket_contact and {geom_a, geom_b} == {"ball_geom", "racket_head"}
+
+        class FakeController:
+            def __init__(self, target_position: np.ndarray) -> None:
+                self._target_position = target_position.copy()
+
+            @property
+            def target_position(self) -> np.ndarray:
+                return self._target_position.copy()
+
+            def reset(self) -> np.ndarray:
+                return np.zeros(7, dtype=float)
+
+            def add_target_offset(self, delta: tuple[float, float, float] | np.ndarray) -> np.ndarray:
+                self._target_position = self._target_position + np.asarray(delta, dtype=float)
+                return self.target_position
+
+            def compute_joint_targets(self) -> np.ndarray:
+                return np.zeros(7, dtype=float)
+
+        env = PingPongEEDeltaEnv(success_velocity_threshold=0.5, max_episode_steps=200)
+        fake_sim = FakeSim()
+        env.sim = fake_sim
+        env.controller = FakeController(fake_sim.racket_position)
+
+        env.reset()
+        _, _, terminated, truncated, success_info = env.step((0.0, 0.0, 0.0))
+
+        self.assertTrue(terminated)
+        self.assertFalse(truncated)
+        self.assertIsNone(success_info["failure_reason"])
+        self.assertEqual(success_info["success_reason"], "upward_racket_bounce")
+        self.assertTrue(success_info["racket_contact"])
+        self.assertTrue(success_info["terminated"])
+        self.assertFalse(success_info["truncated"])
+        self.assertGreater(success_info["ball_vertical_velocity"], env.success_velocity_threshold)
 
 
 if __name__ == "__main__":

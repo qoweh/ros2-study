@@ -151,6 +151,17 @@ reward는 아직 draft다.
 
 termination은 현재 `failure_reason()`에 맞춘다.
 
+그리고 success termination도 하나 넣었다.
+
+현재 규칙:
+- `ball_geom`와 `racket_head`가 contact이고
+- 그 순간 `ball_velocity_z > success_velocity_threshold`
+- 이면 `success_reason = upward_racket_bounce`
+
+기본 threshold는 `0.5`로 두었다.
+
+이 값은 현재 기본 scene에서 첫 라켓 contact 시 측정한 `ball_velocity_z`가 약 `0.81` 수준인 것을 기준으로, 단순 스침보다 조금 더 보수적으로 잡은 초기값이다.
+
 그리고 이제는 time limit도 env 내부에 같이 넣었다.
 
 - 기본 `max_episode_steps = 300`
@@ -160,6 +171,7 @@ termination은 현재 `failure_reason()`에 맞춘다.
 
 즉 현재는:
 - 실패 종료는 `terminated`
+- 성공 종료도 `terminated`
 - 시간 종료는 `truncated`
 
 로 분리된다.
@@ -168,5 +180,6 @@ termination은 현재 `failure_reason()`에 맞춘다.
 
 - `step_count`
 - `time_limit_reached`
+- `success_reason`
 
 즉 지금 단계의 목적은 “학습이 잘 되게 reward를 완성”이 아니라, `env.step(action)` 형태가 실제로 성립하는지 고정하는 것이다.

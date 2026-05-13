@@ -110,9 +110,10 @@ python pingpong_rl/scripts/run_bounce_baseline.py --episodes 3 --max-steps 900
 
 ### 5.1 바로 이어서 할 것
 - end-effector 제어 계층을 넣을지 joint target baseline으로 먼저 갈지 결정
-- `PingPongEEDeltaEnv` 기준 success termination과 reward logging 정책 정리
+- `PingPongEEDeltaEnv` 기준 success threshold와 reward logging 정책 정리
 - baseline rollout에서 쓸 성공 조건과 reward 초안 정의
 - passive viewer와 baseline 출력을 연결할 간단한 디버그 HUD 또는 로깅 포맷 정리
+- `run_ee_rollout_analysis.py`로 multi-episode distribution을 먼저 수집하고 threshold 조정은 그 다음에 검토
 
 ### 5.2 그 다음 단계
 - end-effector 제어 계층 추가 여부 결정
@@ -147,9 +148,10 @@ python pingpong_rl/scripts/run_bounce_baseline.py --episodes 3 --max-steps 900
 - action smoothness penalty
 
 ### 6.4 Episode 경계 계약
-- `terminated`: failure reason이 생기면 `True`
+- `terminated`: failure reason 또는 success reason이 생기면 `True`
 - `truncated`: failure 없이 `step_count >= max_episode_steps`면 `True`
 - 현재 기본 `max_episode_steps = 300`
+- 현재 기본 success 조건: racket contact + `ball_velocity_z > 0.5`
 
 ## 7. 주의할 점
 - 현재 goal은 RL이 아니라 scene 안정화다.

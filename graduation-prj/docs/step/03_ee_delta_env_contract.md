@@ -27,6 +27,24 @@
 
 즉 지금 action은 “실제로 얼마나 움직일지”를 바로 넣는 low-level 계약이다.
 
+## 2.1 현재 success 계약
+
+이번 단계에서 success termination도 추가했다.
+
+- `success_velocity_threshold`: 기본 `0.5`
+- 조건:
+	- `ball_geom`와 `racket_head`가 contact 상태이고
+	- `ball_velocity_z > success_velocity_threshold`
+
+현재 success reason 이름은 아래 하나다.
+
+- `upward_racket_bounce`
+
+의도:
+- 라켓을 그냥 스친 것과
+- 실제로 위로 튀겨 보낸 것을
+구분하기 위함이다.
+
 ## 3. 현재 observation 계약
 
 public observation은 flat vector 하나로 고정한다.
@@ -78,7 +96,36 @@ public observation은 flat vector 하나로 고정한다.
 - `step_count`
 - `time_limit_reached`
 - `failure_reason`
+- `success_reason`
 - `target_position`
+
+그리고 logging용으로 아래도 같이 넣는다.
+
+- reward 분해:
+	- `reward_total`
+	- `reward_height`
+	- `reward_distance`
+	- `reward_contact`
+	- `reward_success`
+	- `reward_failure`
+- episode 경계:
+	- `terminated`
+	- `truncated`
+	- `episode_steps`
+- velocity:
+	- `ball_velocity_x`
+	- `ball_velocity_y`
+	- `ball_velocity_z`
+	- `ball_speed_norm`
+- contact trace:
+	- `contact_observed_during_step`
+	- `contact_substep`
+	- `contact_ball_velocity_x`
+	- `contact_ball_velocity_y`
+	- `contact_ball_velocity_z`
+	- `contact_ball_speed_norm`
+
+현재 `reward_distance`, `reward_success`는 schema 고정용 placeholder라 `0.0`이다.
 
 ## 5. 현재 reward draft
 
@@ -94,11 +141,14 @@ public observation은 flat vector 하나로 고정한다.
 
 termination은 기존 `failure_reason()`를 그대로 따른다.
 
+그리고 success가 잡히면 그 역시 `terminated = True`로 처리한다.
+
 즉 아래가 현재 종료 후보다.
 - `floor_contact`
 - `ball_out_of_bounds`
 - `nonfinite_state`
 - `ball_speed_limit`
+- `upward_racket_bounce`
 
 time limit은 위 failure와 분리해서 `truncated`로만 처리한다.
 
@@ -108,6 +158,6 @@ time limit은 위 failure와 분리해서 `truncated`로만 처리한다.
 
 1. reward에서 height term을 유지할지, contact 중심 sparse reward로 갈지
 2. termination 후 즉시 auto-reset을 env 안에서 할지, wrapper 바깥에서 할지
-3. success termination을 어떤 조건으로 둘지
+3. success threshold를 얼마로 유지할지
 
-현재 기준으로는 observation/반환 형식과 time limit은 고정했고, 다음은 reward와 success episode 경계를 정리하는 것이 맞다.
+현재 기준으로는 observation/반환 형식, time limit, success termination 1차안은 고정했고, 다음은 reward와 success threshold 튜닝을 정리하는 것이 맞다.

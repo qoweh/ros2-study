@@ -48,6 +48,10 @@
     - 기본 `max_episode_steps = 300`
     - `step_count`를 env 내부에서 관리
     - failure가 없고 time limit에 도달하면 `truncated = True`
+  - success termination 추가
+    - 기본 `success_velocity_threshold = 0.5`
+    - `ball_geom`와 `racket_head` contact + `ball_velocity_z > threshold`
+    - success reason은 `upward_racket_bounce`
 
 ## 3. 검증 결과
 
@@ -61,12 +65,13 @@ python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
 ```
 
 결과:
-- 13개 테스트 통과
+- 14개 테스트 통과
 
 추가로 확인한 항목:
 - pure floor drop 후 bounce peak가 충분히 생기는지
 - `PingPongEEDeltaEnv.step()`의 action clipping과 observation contract
 - `PingPongEEDeltaEnv`의 time-limit truncation과 reset 시 step counter 초기화
+- `PingPongEEDeltaEnv`의 upward-bounce success termination contract
 - 기존 viewer/EE controller 관련 테스트 유지
 
 ### 3.2 pure floor drop 결과
@@ -94,7 +99,7 @@ python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
 
 ### 5.1 바로 이어서 할 것
 - reward 항목을 더 명확히 분리
-- success termination 조건을 정리
+- success threshold를 실제 bounce/contact tuning과 함께 다시 보정
 - reward decomposition 로깅을 붙일지 결정
 
 ### 5.2 이후 작업
