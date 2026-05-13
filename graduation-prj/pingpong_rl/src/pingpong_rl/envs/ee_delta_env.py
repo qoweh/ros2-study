@@ -30,6 +30,7 @@ class PingPongEEDeltaEnv:
         self,
         sim: PingPongSim | None = None,
         action_limit: float = 0.03,
+        max_episode_steps: int = 300,
         ball_height: float = 0.22,
         contact_bonus: float = 1.0,
         height_reward_weight: float = 0.1,
@@ -38,11 +39,16 @@ class PingPongEEDeltaEnv:
     ) -> None:
         self.sim = PingPongSim() if sim is None else sim
         self.action_limit = float(action_limit)
+        self.max_episode_steps = int(max_episode_steps)
         self.ball_height = float(ball_height)
         self.contact_bonus = float(contact_bonus)
         self.height_reward_weight = float(height_reward_weight)
         self.floor_penalty = float(floor_penalty)
         self.failure_penalty = float(failure_penalty)
+        if self.max_episode_steps < 1:
+            raise ValueError(f"max_episode_steps must be positive, got {self.max_episode_steps}.")
+
+        self.step_count = 0
         self.controller = RacketCartesianController(self.sim, max_position_step=self.action_limit)
 
     @property
@@ -90,9 +96,12 @@ class PingPongEEDeltaEnv:
         spawn_height = self.ball_height if ball_height is None else float(ball_height)
         self.sim.reset(ball_height=spawn_height, ball_velocity=ball_velocity)
         self.controller.reset()
+        self.step_count = 0
         info: dict[str, object] = {
             "failure_reason": None,
+            "step_count": self.step_count,
             "target_position": self.controller.target_position,
+            "time_limit_reached": False,
         }
         return self.observation(), info
 
@@ -105,18 +114,21 @@ class PingPongEEDeltaEnv:
         self.controller.add_target_offset(applied_action)
         joint_targets = self.controller.compute_joint_targets()
         self.sim.step(joint_targets=joint_targets, n_substeps=self.sim.n_substeps)
+        self.step_count += 1
 
         failure_reason = self.sim.failure_reason()
         reward_terms = self._reward_terms(failure_reason)
         reward = float(sum(reward_terms.values()))
         terminated = failure_reason is not None
-        truncated = False
+        truncated = (not terminated) and self.step_count >= self.max_episode_steps
         info: dict[str, object] = {
             "applied_action": applied_action.copy(),
             "target_position": self.controller.target_position,
             "failure_reason": failure_reason,
             "reward_terms": reward_terms,
             "racket_contact": self.sim.has_contact("ball_geom", "racket_head"),
+            "step_count": self.step_count,
+            "time_limit_reached": truncated,
         }
         return self.observation(), reward, terminated, truncated, info
 

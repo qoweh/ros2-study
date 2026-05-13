@@ -64,10 +64,21 @@ public observation은 flat vector 하나로 고정한다.
 - `reset() -> (observation, info)`
 - `step() -> (observation, reward, terminated, truncated, info)`
 
-현재는 time limit을 별도로 두지 않았기 때문에:
+현재는 env 내부 time limit도 같이 둔다.
+
+- `max_episode_steps`: 기본 `300`
+- `reset()` 시 `step_count = 0`
+- `step()`마다 `step_count += 1`
 
 - `terminated`: `failure_reason()`이 생기면 `True`
-- `truncated`: 항상 `False`
+- `truncated`: `terminated`가 아니고 `step_count >= max_episode_steps`이면 `True`
+
+현재 `info`에는 아래를 같이 넣는다.
+
+- `step_count`
+- `time_limit_reached`
+- `failure_reason`
+- `target_position`
 
 ## 5. 현재 reward draft
 
@@ -89,12 +100,14 @@ termination은 기존 `failure_reason()`를 그대로 따른다.
 - `nonfinite_state`
 - `ball_speed_limit`
 
+time limit은 위 failure와 분리해서 `truncated`로만 처리한다.
+
 ## 7. 다음에 고정해야 할 것
 
 다음 단계에서는 아래를 먼저 결정하는 편이 좋다.
 
 1. reward에서 height term을 유지할지, contact 중심 sparse reward로 갈지
 2. termination 후 즉시 auto-reset을 env 안에서 할지, wrapper 바깥에서 할지
-3. time limit 기반 `truncated`를 추가할지
+3. success termination을 어떤 조건으로 둘지
 
-현재 기준으로는 observation/반환 형식은 고정했고, 다음은 reward와 episode 경계 정책을 정리하는 것이 맞다.
+현재 기준으로는 observation/반환 형식과 time limit은 고정했고, 다음은 reward와 success episode 경계를 정리하는 것이 맞다.

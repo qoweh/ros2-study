@@ -151,6 +151,22 @@ reward는 아직 draft다.
 
 termination은 현재 `failure_reason()`에 맞춘다.
 
-현재 `truncated`는 time limit을 아직 넣지 않았기 때문에 항상 `False`다.
+그리고 이제는 time limit도 env 내부에 같이 넣었다.
+
+- 기본 `max_episode_steps = 300`
+- `reset()`에서 `step_count = 0`
+- `step()`마다 `step_count += 1`
+- failure가 없고 `step_count >= max_episode_steps`면 `truncated = True`
+
+즉 현재는:
+- 실패 종료는 `terminated`
+- 시간 종료는 `truncated`
+
+로 분리된다.
+
+디버그와 로깅을 위해 `info`에는 아래도 넣는다.
+
+- `step_count`
+- `time_limit_reached`
 
 즉 지금 단계의 목적은 “학습이 잘 되게 reward를 완성”이 아니라, `env.step(action)` 형태가 실제로 성립하는지 고정하는 것이다.

@@ -178,6 +178,8 @@ class PingPongSimTest(unittest.TestCase):
             {"joint_positions", "joint_velocities", "racket_position", "target_position", "ball_position", "ball_velocity"},
         )
         self.assertIsNone(reset_info["failure_reason"])
+        self.assertEqual(reset_info["step_count"], 0)
+        self.assertFalse(reset_info["time_limit_reached"])
         np.testing.assert_allclose(unpacked_observation["target_position"], env.target_position)
         initial_target = env.target_position.copy()
         next_observation, reward, terminated, truncated, info = env.step((0.0, 0.0, 0.1))
@@ -196,9 +198,37 @@ class PingPongSimTest(unittest.TestCase):
             float(info["target_position"][2]),
             places=6,
         )
+        self.assertEqual(info["step_count"], 1)
+        self.assertFalse(info["time_limit_reached"])
         self.assertIsInstance(reward, float)
         self.assertFalse(terminated)
         self.assertFalse(truncated)
+
+    def test_ee_delta_env_truncates_at_time_limit_and_reset_clears_counter(self) -> None:
+        env = PingPongEEDeltaEnv(max_episode_steps=2)
+        _, reset_info = env.reset()
+
+        self.assertEqual(reset_info["step_count"], 0)
+        self.assertEqual(env.step_count, 0)
+
+        _, _, terminated_1, truncated_1, info_1 = env.step((0.0, 0.0, 0.0))
+        _, _, terminated_2, truncated_2, info_2 = env.step((0.0, 0.0, 0.0))
+
+        self.assertFalse(terminated_1)
+        self.assertFalse(truncated_1)
+        self.assertEqual(info_1["step_count"], 1)
+        self.assertFalse(info_1["time_limit_reached"])
+        self.assertFalse(terminated_2)
+        self.assertTrue(truncated_2)
+        self.assertEqual(info_2["step_count"], 2)
+        self.assertTrue(info_2["time_limit_reached"])
+        self.assertEqual(env.step_count, 2)
+
+        _, reset_info_after = env.reset()
+
+        self.assertEqual(env.step_count, 0)
+        self.assertEqual(reset_info_after["step_count"], 0)
+        self.assertFalse(reset_info_after["time_limit_reached"])
 
 
 if __name__ == "__main__":

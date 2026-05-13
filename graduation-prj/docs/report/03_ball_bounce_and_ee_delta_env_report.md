@@ -44,6 +44,10 @@
   - 반환 형식은 Gymnasium 스타일로 정리
     - `reset() -> (observation, info)`
     - `step() -> (observation, reward, terminated, truncated, info)`
+  - time limit 추가
+    - 기본 `max_episode_steps = 300`
+    - `step_count`를 env 내부에서 관리
+    - failure가 없고 time limit에 도달하면 `truncated = True`
 
 ## 3. 검증 결과
 
@@ -57,11 +61,12 @@ python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
 ```
 
 결과:
-- 12개 테스트 통과
+- 13개 테스트 통과
 
 추가로 확인한 항목:
 - pure floor drop 후 bounce peak가 충분히 생기는지
 - `PingPongEEDeltaEnv.step()`의 action clipping과 observation contract
+- `PingPongEEDeltaEnv`의 time-limit truncation과 reset 시 step counter 초기화
 - 기존 viewer/EE controller 관련 테스트 유지
 
 ### 3.2 pure floor drop 결과
@@ -89,8 +94,8 @@ python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
 
 ### 5.1 바로 이어서 할 것
 - reward 항목을 더 명확히 분리
-- termination과 reset 경계를 정리
-- time limit 기반 `truncated`를 넣을지 결정
+- success termination 조건을 정리
+- reward decomposition 로깅을 붙일지 결정
 
 ### 5.2 이후 작업
 - Gymnasium wrapper 연결
