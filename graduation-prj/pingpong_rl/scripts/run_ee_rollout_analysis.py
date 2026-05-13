@@ -144,6 +144,10 @@ def _quantile_stats(values: Sequence[float]) -> dict[str, float | None]:
     }
 
 
+def _episode_metric_stats(rows: Sequence[dict[str, object]], field_name: str) -> dict[str, float | None]:
+    return _quantile_stats([float(row[field_name]) for row in rows])
+
+
 def _write_csv(path: Path, rows: Sequence[dict[str, object]], fieldnames: Sequence[str]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("w", newline="", encoding="utf-8") as handle:
@@ -262,6 +266,16 @@ def build_summary(
     contact_velocity_y = [float(row["ball_velocity_y"]) for row in contact_rows if row["ball_velocity_y"] is not None]
     contact_velocity_z = [float(row["ball_velocity_z"]) for row in contact_rows if row["ball_velocity_z"] is not None]
     contact_speed_norm = [float(row["ball_speed_norm"]) for row in contact_rows if row["ball_speed_norm"] is not None]
+    zero_contact_reward_episodes = sum(float(row["reward_contact_sum"]) == 0.0 for row in episode_rows)
+    zero_success_reward_episodes = sum(float(row["reward_success_sum"]) == 0.0 for row in episode_rows)
+    height_dominant_episodes = sum(
+        float(row["reward_height_sum"]) > float(row["reward_contact_sum"]) + float(row["reward_success_sum"])
+        for row in episode_rows
+    )
+    survival_without_success_episodes = sum(
+        (not bool(row["truncated"])) and row["success_reason"] == "" and float(row["reward_height_sum"]) > 0.0
+        for row in episode_rows
+    )
 
     return {
         "config": {
@@ -282,6 +296,20 @@ def build_summary(
         },
         "success_reason_counts": dict(success_counter),
         "failure_reason_counts": dict(failure_counter),
+        "reward_sum_stats": {
+            "reward_total_sum": _episode_metric_stats(episode_rows, "reward_total_sum"),
+            "reward_height_sum": _episode_metric_stats(episode_rows, "reward_height_sum"),
+            "reward_distance_sum": _episode_metric_stats(episode_rows, "reward_distance_sum"),
+            "reward_contact_sum": _episode_metric_stats(episode_rows, "reward_contact_sum"),
+            "reward_success_sum": _episode_metric_stats(episode_rows, "reward_success_sum"),
+            "reward_failure_sum": _episode_metric_stats(episode_rows, "reward_failure_sum"),
+        },
+        "reward_dominance": {
+            "zero_contact_reward_episodes": zero_contact_reward_episodes,
+            "zero_success_reward_episodes": zero_success_reward_episodes,
+            "height_dominant_episodes": height_dominant_episodes,
+            "survival_without_success_episodes": survival_without_success_episodes,
+        },
         "contact_velocity_stats": {
             "ball_velocity_x": _quantile_stats(contact_velocity_x),
             "ball_velocity_y": _quantile_stats(contact_velocity_y),

@@ -5,3 +5,4 @@ rosbag2_2026_05_08-14_57_30/
 workbench/
 __*
 !__init__.py
+etc/

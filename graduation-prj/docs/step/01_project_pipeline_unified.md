@@ -114,6 +114,7 @@ python pingpong_rl/scripts/run_bounce_baseline.py --episodes 3 --max-steps 900
 - baseline rollout에서 쓸 성공 조건과 reward 초안 정의
 - passive viewer와 baseline 출력을 연결할 간단한 디버그 HUD 또는 로깅 포맷 정리
 - `run_ee_rollout_analysis.py`로 multi-episode distribution을 먼저 수집하고 threshold 조정은 그 다음에 검토
+- `run_ppo_baseline.py`로 rollout analysis와 같은 schema의 PPO smoke/baseline 로그를 수집
 
 ### 5.2 그 다음 단계
 - end-effector 제어 계층 추가 여부 결정
