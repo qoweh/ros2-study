@@ -167,23 +167,38 @@ class PingPongSimTest(unittest.TestCase):
         self.assertAlmostEqual(target[1], anchor[1], places=6)
         self.assertGreater(target[2], anchor[2])
 
-    def test_ee_delta_env_step_clips_action_and_returns_contract(self) -> None:
+    def test_ee_delta_env_step_clips_action_and_returns_flat_contract(self) -> None:
         env = PingPongEEDeltaEnv()
-        observation = env.reset()
+        observation, reset_info = env.reset()
+        unpacked_observation = env.unflatten_observation(observation)
 
-        self.assertEqual(set(observation), {"joint_positions", "joint_velocities", "racket_position", "ball_position", "ball_velocity"})
+        self.assertEqual(observation.shape, (env.observation_size,))
+        self.assertEqual(
+            set(unpacked_observation),
+            {"joint_positions", "joint_velocities", "racket_position", "target_position", "ball_position", "ball_velocity"},
+        )
+        self.assertIsNone(reset_info["failure_reason"])
+        np.testing.assert_allclose(unpacked_observation["target_position"], env.target_position)
         initial_target = env.target_position.copy()
-        next_observation, reward, terminated, info = env.step((0.0, 0.0, 0.1))
+        next_observation, reward, terminated, truncated, info = env.step((0.0, 0.0, 0.1))
+        next_unpacked_observation = env.unflatten_observation(next_observation)
 
-        self.assertEqual(next_observation["joint_positions"].shape, (7,))
-        self.assertEqual(next_observation["joint_velocities"].shape, (7,))
-        self.assertEqual(next_observation["racket_position"].shape, (3,))
-        self.assertEqual(next_observation["ball_position"].shape, (3,))
-        self.assertEqual(next_observation["ball_velocity"].shape, (3,))
+        self.assertEqual(next_unpacked_observation["joint_positions"].shape, (7,))
+        self.assertEqual(next_unpacked_observation["joint_velocities"].shape, (7,))
+        self.assertEqual(next_unpacked_observation["racket_position"].shape, (3,))
+        self.assertEqual(next_unpacked_observation["target_position"].shape, (3,))
+        self.assertEqual(next_unpacked_observation["ball_position"].shape, (3,))
+        self.assertEqual(next_unpacked_observation["ball_velocity"].shape, (3,))
         self.assertAlmostEqual(float(info["applied_action"][2]), env.action_limit, places=6)
         self.assertGreater(float(info["target_position"][2]), float(initial_target[2]))
+        self.assertAlmostEqual(
+            float(next_unpacked_observation["target_position"][2]),
+            float(info["target_position"][2]),
+            places=6,
+        )
         self.assertIsInstance(reward, float)
         self.assertFalse(terminated)
+        self.assertFalse(truncated)
 
 
 if __name__ == "__main__":

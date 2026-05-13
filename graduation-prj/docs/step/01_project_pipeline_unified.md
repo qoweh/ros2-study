@@ -110,7 +110,7 @@ python pingpong_rl/scripts/run_bounce_baseline.py --episodes 3 --max-steps 900
 
 ### 5.1 바로 이어서 할 것
 - end-effector 제어 계층을 넣을지 joint target baseline으로 먼저 갈지 결정
-- Gymnasium wrapper 직전 observation/action 인터페이스 고정
+- `PingPongEEDeltaEnv` public contract 기준으로 reward/reset/truncated 정책 정리
 - baseline rollout에서 쓸 성공 조건과 reward 초안 정의
 - passive viewer와 baseline 출력을 연결할 간단한 디버그 HUD 또는 로깅 포맷 정리
 
@@ -122,10 +122,15 @@ python pingpong_rl/scripts/run_bounce_baseline.py --episodes 3 --max-steps 900
 
 ## 6. 이후 RL 설계 윤곽
 
-### 6.1 Observation 후보
-- joint position / velocity
-- end-effector position / velocity
-- ball position / velocity
+### 6.1 현재 Observation 계약
+- public observation은 flat vector `(26,)`
+- 순서:
+  - joint position `(7,)`
+  - joint velocity `(7,)`
+  - racket position `(3,)`
+  - target position `(3,)`
+  - ball position `(3,)`
+  - ball velocity `(3,)`
 
 ### 6.2 Action 후보
 - Option A: joint position target

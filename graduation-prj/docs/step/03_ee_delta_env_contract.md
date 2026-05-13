@@ -29,21 +29,47 @@
 
 ## 3. 현재 observation 계약
 
-dict keys:
-- `joint_positions`: `(7,)`
-- `joint_velocities`: `(7,)`
-- `racket_position`: `(3,)`
-- `ball_position`: `(3,)`
-- `ball_velocity`: `(3,)`
+public observation은 flat vector 하나로 고정한다.
+
+- `observation.shape == (26,)`
+
+현재 순서는 아래와 같다.
+
+- `observation[0:7]`: `joint_positions`
+- `observation[7:14]`: `joint_velocities`
+- `observation[14:17]`: `racket_position`
+- `observation[17:20]`: `target_position`
+- `observation[20:23]`: `ball_position`
+- `observation[23:26]`: `ball_velocity`
+
+`target_position`을 추가한 이유:
+- 현재 env는 delta action을 controller 내부의 `target_position`에 누적한다.
+- 이 값이 observation에 없으면 같은 `racket_position`이라도 다음 transition이 달라질 수 있다.
+- 즉 RL 관점에서 state를 닫으려면 `target_position`을 같이 관측해야 한다.
+
+디버그가 필요할 때는 다음 helper를 사용한다.
+
+- `observation_dict()`
+- `unflatten_observation()`
 
 아직 빠진 것:
 - racket orientation
 - racket velocity
 - ball spin
 
-즉 현재 observation은 minimal version이다.
+## 4. 현재 reset/step 반환 형식
 
-## 4. 현재 reward draft
+이번 단계에서 Gymnasium 스타일로 반환 형식도 같이 고정한다.
+
+- `reset() -> (observation, info)`
+- `step() -> (observation, reward, terminated, truncated, info)`
+
+현재는 time limit을 별도로 두지 않았기 때문에:
+
+- `terminated`: `failure_reason()`이 생기면 `True`
+- `truncated`: 항상 `False`
+
+## 5. 현재 reward draft
 
 현재는 아래 정도만 들어 있다.
 
@@ -53,7 +79,7 @@ dict keys:
 
 이건 아직 최종 shaping이 아니라, `step()` 반환 형식이 성립하는지 확인하려는 임시 초안이다.
 
-## 5. 현재 termination 계약
+## 6. 현재 termination 계약
 
 termination은 기존 `failure_reason()`를 그대로 따른다.
 
@@ -63,12 +89,12 @@ termination은 기존 `failure_reason()`를 그대로 따른다.
 - `nonfinite_state`
 - `ball_speed_limit`
 
-## 6. 다음에 고정해야 할 것
+## 7. 다음에 고정해야 할 것
 
 다음 단계에서는 아래를 먼저 결정하는 편이 좋다.
 
-1. observation을 dict로 유지할지 flat vector로 바꿀지
-2. reward에서 height term을 유지할지, contact 중심 sparse reward로 갈지
-3. termination 후 즉시 auto-reset을 env 안에서 할지, wrapper 바깥에서 할지
+1. reward에서 height term을 유지할지, contact 중심 sparse reward로 갈지
+2. termination 후 즉시 auto-reset을 env 안에서 할지, wrapper 바깥에서 할지
+3. time limit 기반 `truncated`를 추가할지
 
-현재 기준으로는 아직 wrapper를 안 넣었기 때문에, reward와 observation 계약을 먼저 고정하는 것이 맞다.
+현재 기준으로는 observation/반환 형식은 고정했고, 다음은 reward와 episode 경계 정책을 정리하는 것이 맞다.

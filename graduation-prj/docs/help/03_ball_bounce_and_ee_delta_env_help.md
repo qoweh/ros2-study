@@ -60,7 +60,7 @@
 
 즉 이번 선택은:
 - realism 최우선
-n이 아니라
+이 아니라
 - control architecture 안정화 우선
 
 이라는 현재 프로젝트 방향에 맞춘 타협값이다.
@@ -94,20 +94,48 @@ n이 아니라
 
 즉 지금은 “라켓 중심점을 얼마나 이동시키고 싶은가”만 다룬다.
 
-## 6. 현재 observation 계약
+## 6. 왜 observation은 flat vector로 지금 고정했는가
 
-현재 observation은 dict 형태로 고정했다.
+이번에는 public env observation을 dict가 아니라 flat vector로 고정했다.
 
-키:
-- `joint_positions`
-- `joint_velocities`
-- `racket_position`
-- `ball_position`
-- `ball_velocity`
+이유:
+- 현재 observation 항목이 모두 고정 길이 연속값이다.
+- 곧 RL에 붙일 인터페이스라면 마지막에 한 번 더 flatten하는 비용만 남긴다.
+- MLP baseline과 Gymnasium 스타일 wrapper에 바로 연결하기 쉽다.
 
-이건 아직 Gymnasium 최종 형식은 아니고, 다음 단계에서 flatten할지 dict 유지할지 결정할 수 있는 중간 계약이다.
+현재 순서:
+- `joint_positions` `(7,)`
+- `joint_velocities` `(7,)`
+- `racket_position` `(3,)`
+- `target_position` `(3,)`
+- `ball_position` `(3,)`
+- `ball_velocity` `(3,)`
 
-## 7. 현재 reward/termination은 어떤 수준인가
+즉 최종 flat observation은 `(26,)`이다.
+
+## 7. 왜 `target_position`을 observation에 넣었는가
+
+처음에는 `racket_position`과 `ball_position`만 있으면 될 것처럼 보일 수 있다.
+
+하지만 현재 action은 `controller.target_position`에 delta를 누적하는 방식이다.
+
+즉 controller 내부에는 다음 step의 거동에 영향을 주는 상태가 하나 더 있다.
+
+그 값이 `target_position`이다.
+
+이걸 observation에 넣지 않으면:
+- 외부에서 보기엔 같은 observation처럼 보여도
+- 내부 controller target이 다르면
+- 다음 transition이 달라질 수 있다.
+
+그래서 이번에 flat vector로 바꾸면서 `target_position`도 같이 넣어 RL 기준 상태를 닫았다.
+
+사람이 보기 쉬운 형태가 필요하면 코드에서는 다음 helper를 쓰면 된다.
+
+- `observation_dict()`
+- `unflatten_observation()`
+
+## 8. 현재 reward/termination은 어떤 수준인가
 
 reward는 아직 draft다.
 
@@ -116,6 +144,13 @@ reward는 아직 draft다.
 - ball이 racket보다 위에 있을 때의 작은 height term
 - floor/failure penalty
 
+반환 형식은 Gymnasium 스타일로 맞췄다.
+
+- `reset() -> (observation, info)`
+- `step() -> (observation, reward, terminated, truncated, info)`
+
 termination은 현재 `failure_reason()`에 맞춘다.
+
+현재 `truncated`는 time limit을 아직 넣지 않았기 때문에 항상 `False`다.
 
 즉 지금 단계의 목적은 “학습이 잘 되게 reward를 완성”이 아니라, `env.step(action)` 형태가 실제로 성립하는지 고정하는 것이다.

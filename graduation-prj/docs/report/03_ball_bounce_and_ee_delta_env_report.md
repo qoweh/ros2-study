@@ -26,17 +26,24 @@
   - `(dx, dy, dz)`
   - step당 `0.03m`로 clip
 - observation:
-  - `joint_positions`
-  - `joint_velocities`
-  - `racket_position`
-  - `ball_position`
-  - `ball_velocity`
+  - public contract는 flat vector `(26,)`로 고정
+  - 순서:
+    - `joint_positions`
+    - `joint_velocities`
+    - `racket_position`
+    - `target_position`
+    - `ball_position`
+    - `ball_velocity`
+  - `target_position`을 넣어 controller 내부 누적 상태를 observation에 포함
 - reward draft:
   - racket contact bonus
   - small height term
   - floor/failure penalty
 - termination:
   - 기존 `failure_reason()` 기준 사용
+  - 반환 형식은 Gymnasium 스타일로 정리
+    - `reset() -> (observation, info)`
+    - `step() -> (observation, reward, terminated, truncated, info)`
 
 ## 3. 검증 결과
 
@@ -81,9 +88,9 @@ python -m unittest discover -s pingpong_rl/tests -p 'test_scene_load.py'
 ## 5. 다음 작업 제안
 
 ### 5.1 바로 이어서 할 것
-- `PingPongEEDeltaEnv`를 기준으로 observation flatten 규칙 고정
 - reward 항목을 더 명확히 분리
 - termination과 reset 경계를 정리
+- time limit 기반 `truncated`를 넣을지 결정
 
 ### 5.2 이후 작업
 - Gymnasium wrapper 연결
