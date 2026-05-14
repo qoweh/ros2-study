@@ -1,0 +1,28 @@
+<mujoco>
+    <option gravity="0 0 -9.81"/>
+
+    <worldbody>
+        <!-- 바닥 -->
+        <geom 
+            type="plane" 
+            size="5 5 0.1" 
+            rgba="0.8 0.9 0.8 1"/>
+        <!-- 자동차 몸체 -->
+        <body name="car" pos="0 0 0.1">
+            <geom
+                type="box"
+                size="0.1 0.05 0.03"
+                rgba="0 0 1 1"/>
+            <!-- 앞뒤 이동 -->
+            <joint
+                name="forward_joint"
+                type="slide"
+                axis="1 0 0"/>
+        </body>
+    </worldbody>
+    <actuator>
+        <motor
+            joint="forward_joint"
+            ctrlrange="-1 1"/>
+    </actuator>
+</mujoco>
