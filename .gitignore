@@ -6,3 +6,4 @@ workbench/
 __*
 !__init__.py
 etc/
+.DS_Store
